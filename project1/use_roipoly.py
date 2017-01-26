@@ -11,6 +11,7 @@ import sys
 from scipy import ndimage
 from six.moves.urllib.request import urlretrieve
 from six.moves import cPickle as pickle
+import time 
 """
 We will store RGB of pixels to each color dataset it belongs to. 
 We encode colors as following: 
@@ -36,8 +37,8 @@ def ROI2RGB(ROI, currentImage):
     return grid
 
 def dump_pickle(folder, data_name, data):
-    file=  data_name + '.pickle'
-    file_name = os.path.join(folder, file)
+	file=  data_name + '.pickle'
+	file_name = os.path.join(folder, file)
 	try:
 		with open(file_name, 'wb') as f:
 			pickle.dump(data, f, pickle.HIGHEST_PROTOCOL)
@@ -45,8 +46,8 @@ def dump_pickle(folder, data_name, data):
 		print('Unable to save data to', file_name, ':', e)
 
 def main():
-	
-	folder = "Proj1_Train/"
+
+	folder = "data/Proj1_Train/"
 	# list all image files 
 	image_files = os.listdir(folder)
 
@@ -99,11 +100,15 @@ def main():
 		# print np.shape(img)
 		barrel_grid = ROI2RGB(barrel_red_ROI, img)
 		# print 'barrel grid ', len(barrel_grid), barrel_grid[0]
-		barrel_red_set.append(img[barrel_grid])
+		
+		# # Uncomment the following two lines before running test_saved_pickle() 
 		# img[barrel_grid] = (0,0,0)
-		pl.imshow(barrel_red_set, aspect='auto')
+		# barrel_red_set.append(img)
+		# # Comment the following line before running test_saved_pickle() 
+		barrel_red_set.append(img[barrel_grid])
+		pl.imshow(img, aspect='auto')
 		print "-- Sofar, total number of element in barrel red set: ", np.shape(barrel_red_set)
-		# return 
+		
 
 		# add RGB of the pixels to the corresponding data array 
 
@@ -116,7 +121,7 @@ def main():
 			# else, let user draw next ROI
 			print "--- Draw next ROI...."
 			ROI = roipoly(roicolor='b') #let user draw ROI
-			color = int(raw_input("---- What color it is? (floor red: 2, wall red: 3, chair red: 4, yellow: 5) : "))
+			color = int(raw_input("---- What color it is? (floor red: 2, wall red: 3, chair red: 4, yellow: 5, gray brick: 6) : "))
 			pl.imshow(img, aspect='auto')
 			ROI.displayROI()
 			print "----- Color has been segmented:", color, " or ", color_dict[color]
@@ -137,17 +142,42 @@ def main():
 			else 		  : 
 				gray_brick_set.append(img[grid])
 				print "-- Sofar, total number of element in ", color_dict[color], "set:", np.shape(gray_brick_set)
-		cv2.waitKey(27)	
+		# cv2.waitKey(27)
+		# clear window to avoid inerference 	
+		pl.clf()
 
 	# dump datasets to pickle files 
+	pickle_folder = "data/pickle_folder"
+	if not os.path.exists(pickle_folder):
+		os.makedirs(pickle_folder)
+	dump_pickle(pickle_folder, "barrel_red_set", barrel_red_set)
+	dump_pickle(pickle_folder, "floor_red_set", floor_red_set)
+	dump_pickle(pickle_folder, "wall_red_set", wall_red_set)
+	dump_pickle(pickle_folder, "chair_red_set", chair_red_set)
+	dump_pickle(pickle_folder, "yellow_wall_set", yellow_wall_set)
+	dump_pickle(pickle_folder, "gray_brick_set", gray_brick_set)
 
-	dump_pickle(folder, "barrel_red_set", barrel_red_set)
-	dump_pickle(folder, "floor_red_set", floor_red_set)
-	dump_pickle(folder, "wall_red_set", wall_red_set)
-	dump_pickle(folder, "chair_red_set", chair_red_set)
-	dump_pickle(folder, "yellow_wall_set", yellow_wall_set)
-	dump_pickle(folder, "gray_brick_set", gray_brick_set)
-
+# def test_saved_pickle():
+# 	"""This funtion is used to make sure that the content that we saved to each dataset is correct! 
+# 		Before running this function, comment and uncomment somelines mentioned in main() function"""
+# 	pickle_folder = "data/pickle_folder"
+# 	files = os.listdir(pickle_folder)
+# 	for file in files:
+# 		file_name = os.path.join(pickle_folder,file)
+# 		print 'file_name:',file_name
+# 		try:
+# 			with open(file_name, 'rb') as f:
+# 				barrel_red_set = pickle.load(f)
+# 				print np.shape(barrel_red_set)
+# 				pl.imshow(barrel_red_set[1])
+# 				pl.show()
+# 				time.sleep(100)
+# 		except Exception as e:
+# 			print('Unable to process data from', file_name, ':', e)
+# 			raise
 
 if __name__=="__main__":
 	main()
+	# test_saved_pickle()
+
+
