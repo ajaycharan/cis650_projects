@@ -18,7 +18,7 @@ We encode colors as following:
 barrel_red : 1 
 floor_red:   2 
 """
-color_dict = {1:"barrel RED", 2:"floor red: 2", 3: "wall red: 3", 4: "chair red: 4", 5: "yellow: 5"}
+color_dict = {1:"barrel RED", 2:"floor red: 2", 3: "wall red: 3", 4: "chair red: 4", 5: "yellow: 5", 6:"gray brick: 6"}
 
 def ROI2RGB(ROI, currentImage):
     ny, nx, three = np.shape(currentImage)
@@ -51,29 +51,68 @@ def main():
 	# list all image files 
 	image_files = os.listdir(folder)
 
+ 	# check the existance of pickle files 
+	pickle_folder = "data/pickle_folder"
+	if not os.path.exists(pickle_folder):
+		os.makedirs(pickle_folder)
+ 
+	data_set_file = "barrel_red_set" + ".pickle"
+	pickle_file = os.path.join(pickle_folder,data_set_file)
+	if os.path.exists(pickle_file):
+		print 'barrel_red_set existed. reading...'
+		with open(pickle_file, 'rb') as f:
+			barrel_red_set = pickle.load(f)
+	else: 
+		barrel_red_set = [] 
 
-	# suppose that each image contains less than 100 000 pixels of each kind of color 
-	# barrel_red_set = np.ndarray(shape=(len(image_files), 100000),
- #                         dtype=np.float32)
-	# floor_red_set = np.ndarray(shape=(len(image_files), 100000),
- #                         dtype=np.float32) 
-	# wall_red_set =  np.ndarray(shape=(len(image_files), 1000000),
- #                         dtype=np.float32) 
-	# chair_red_set =  np.ndarray(shape=(len(image_files), 100000),
- #                         dtype=np.float32) 
-	# yellow_wall_set =  np.ndarray(shape=(len(image_files), 100000),
- #                         dtype=np.float32) 
-	# gray_brick_set =  np.ndarray(shape=(len(image_files), 100000),
- #                         dtype=np.float32) 
-	# green_tree_set =  np.ndarray(shape=(len(image_files), 100000),
- #                         dtype=np.float32)  
 
-	barrel_red_set = []
-	floor_red_set  = []
-	wall_red_set   = []
-	chair_red_set  = []
-	yellow_wall_set= []
-	gray_brick_set = []
+	data_set_file = "floor_red_set" + ".pickle"
+	pickle_file = os.path.join(pickle_folder,data_set_file)
+	if os.path.exists(pickle_file):
+		with open(pickle_file, 'rb') as f:
+			floor_red_set = pickle.load(f)
+	else: 
+		floor_red_set = [] 
+ 
+	data_set_file = "wall_red_set" + ".pickle"
+	pickle_file = os.path.join(pickle_folder,data_set_file)
+	if os.path.exists(pickle_file):
+		with open(pickle_file, 'rb') as f:
+			wall_red_set = pickle.load(f)
+	else: 
+		wall_red_set = [] 
+
+	data_set_file = "chair_red_set" + ".pickle"
+	pickle_file = os.path.join(pickle_folder,data_set_file)
+	if os.path.exists(pickle_file):
+		with open(pickle_file, 'rb') as f:
+			chair_red_set = pickle.load(f)
+	else: 
+		chair_red_set = [] 
+	
+	data_set_file = "yellow_wall_set" + ".pickle"
+	pickle_file = os.path.join(pickle_folder,data_set_file)
+	if os.path.exists(pickle_file):
+		with open(pickle_file, 'rb') as f:
+			yellow_wall_set = pickle.load(f)
+	else: 
+		yellow_wall_set = [] 
+ 
+	data_set_file = "gray_brick_set" + ".pickle"
+	pickle_file = os.path.join(pickle_folder,data_set_file)
+	if os.path.exists(pickle_file):
+		with open(pickle_file, 'rb') as f:
+			gray_brick_set = pickle.load(f)
+	else: 
+		gray_brick_set = [] 
+
+
+	# barrel_red_set = []
+	# floor_red_set  = []
+	# wall_red_set   = []
+	# chair_red_set  = []
+	# yellow_wall_set= []
+	# gray_brick_set = []
 
 
 	num_images = 0 
@@ -84,7 +123,14 @@ def main():
 
 		# open image 
 		img = cv2.imread(image_file)
-		img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+		img_denoised = cv2.fastNlMeansDenoisingColored(img,None,5,5,3,5)
+		# cv2.imshow('original image',img)
+		# cv2.imshow('denoised image', img_denoised)
+		# cv2.waitKey(0)
+		# cv2.destroyAllWindows()
+		# exit(0)
+
+		img = cv2.cvtColor(img_denoised, cv2.COLOR_BGR2RGB)
 		# OpenCV represents RGB images as multi-dimensional Numpy but in reverse order: BGR rather than RGB. 
 		# Thus, we have to convert it back to RGB 
 		pl.imshow(img, aspect='auto')	
@@ -147,15 +193,56 @@ def main():
 		pl.clf()
 
 	# dump datasets to pickle files 
-	pickle_folder = "data/pickle_folder"
 	if not os.path.exists(pickle_folder):
 		os.makedirs(pickle_folder)
-	dump_pickle(pickle_folder, "barrel_red_set", barrel_red_set)
-	dump_pickle(pickle_folder, "floor_red_set", floor_red_set)
-	dump_pickle(pickle_folder, "wall_red_set", wall_red_set)
-	dump_pickle(pickle_folder, "chair_red_set", chair_red_set)
-	dump_pickle(pickle_folder, "yellow_wall_set", yellow_wall_set)
-	dump_pickle(pickle_folder, "gray_brick_set", gray_brick_set)
+	if barrel_red_set:
+		# remove old file 
+		data_set_file = "barrel_red_set" + ".pickle"
+		pickle_file = os.path.join(pickle_folder,data_set_file)
+		if os.path.exists(pickle_file):
+			os.remove(pickle_file)
+		# create new file 
+		dump_pickle(pickle_folder, "barrel_red_set", barrel_red_set)
+	if floor_red_set:
+		# remove old file 
+		data_set_file = "floor_red_set" + ".pickle"
+		pickle_file = os.path.join(pickle_folder,data_set_file)
+		if os.path.exists(pickle_file):
+			os.remove(pickle_file)
+		# create new file 
+		dump_pickle(pickle_folder, "floor_red_set", floor_red_set)
+	if wall_red_set:
+		# remove old file 
+		data_set_file = "wall_red_set" + ".pickle"
+		pickle_file = os.path.join(pickle_folder,data_set_file)
+		if os.path.exists(pickle_file):
+			os.remove(pickle_file)
+		# create new file 
+		dump_pickle(pickle_folder, "wall_red_set", wall_red_set)
+	if chair_red_set:
+		# remove old file 
+		data_set_file = "chair_red_set" + ".pickle"
+		pickle_file = os.path.join(pickle_folder,data_set_file)
+		if os.path.exists(pickle_file):
+			os.remove(pickle_file)
+		# create new file 
+		dump_pickle(pickle_folder, "chair_red_set", chair_red_set)
+	if yellow_wall_set:
+		# remove old file 
+		data_set_file = "yellow_wall_set" + ".pickle"
+		pickle_file = os.path.join(pickle_folder,data_set_file)
+		if os.path.exists(pickle_file):
+			os.remove(pickle_file)
+		# create new file 
+		dump_pickle(pickle_folder, "yellow_wall_set", yellow_wall_set)
+	if gray_brick_set:
+		# remove old file 
+		data_set_file = "gray_brick_set" + ".pickle"
+		pickle_file = os.path.join(pickle_folder,data_set_file)
+		if os.path.exists(pickle_file):
+			os.remove(pickle_file)
+		# create new file
+		dump_pickle(pickle_folder, "gray_brick_set", gray_brick_set)
 
 # def test_saved_pickle():
 # 	"""This funtion is used to make sure that the content that we saved to each dataset is correct! 
