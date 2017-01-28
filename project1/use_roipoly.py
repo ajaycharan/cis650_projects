@@ -18,9 +18,9 @@ We encode colors as following:
 barrel_red : 1 
 floor_red:   2 
 """
-color_dict = {1:"barrel RED", 2:"floor red: 2", 3: "wall red: 3", 4: "chair red: 4", 5: "yellow: 5", 6:"gray brick: 6"}
+color_dict = {1:"barrel RED", 2:"floor red: 2", 3: "wall red: 3", 4: "chair red: 4", 5: "wooden yellow: 5", 6:"gray brick: 6", 7:"other: 7"}
 
-def ROI2RGB(ROI, currentImage):
+def makeGrid(ROI, currentImage):
     ny, nx, three = np.shape(currentImage)
     poly_verts = [(ROI.allxpoints[0], ROI.allypoints[0])]
     for i in range(len(ROI.allxpoints)-1, -1, -1):
@@ -56,64 +56,31 @@ def main():
 	if not os.path.exists(pickle_folder):
 		os.makedirs(pickle_folder)
  
-	data_set_file = "barrel_red_set" + ".pickle"
+	data_set_file = "train" + ".pickle"
 	pickle_file = os.path.join(pickle_folder,data_set_file)
 	if os.path.exists(pickle_file):
-		print 'barrel_red_set existed. reading...'
+		print 'train file existed. reading...'
 		with open(pickle_file, 'rb') as f:
-			barrel_red_set = pickle.load(f)
+			train = pickle.load(f)
 	else: 
-		barrel_red_set = [] 
+		train = np.array([])
 
 
-	data_set_file = "floor_red_set" + ".pickle"
-	pickle_file = os.path.join(pickle_folder,data_set_file)
-	if os.path.exists(pickle_file):
-		with open(pickle_file, 'rb') as f:
-			floor_red_set = pickle.load(f)
-	else: 
-		floor_red_set = [] 
- 
-	data_set_file = "wall_red_set" + ".pickle"
+	data_set_file = "target" + ".pickle"
 	pickle_file = os.path.join(pickle_folder,data_set_file)
 	if os.path.exists(pickle_file):
 		with open(pickle_file, 'rb') as f:
-			wall_red_set = pickle.load(f)
+			target = pickle.load(f)
 	else: 
-		wall_red_set = [] 
+		target = np.array([])
 
-	data_set_file = "chair_red_set" + ".pickle"
+	data_set_file = "ids" + ".pickle"
 	pickle_file = os.path.join(pickle_folder,data_set_file)
 	if os.path.exists(pickle_file):
 		with open(pickle_file, 'rb') as f:
-			chair_red_set = pickle.load(f)
+			ids = pickle.load(f)
 	else: 
-		chair_red_set = [] 
-	
-	data_set_file = "yellow_wall_set" + ".pickle"
-	pickle_file = os.path.join(pickle_folder,data_set_file)
-	if os.path.exists(pickle_file):
-		with open(pickle_file, 'rb') as f:
-			yellow_wall_set = pickle.load(f)
-	else: 
-		yellow_wall_set = [] 
- 
-	data_set_file = "gray_brick_set" + ".pickle"
-	pickle_file = os.path.join(pickle_folder,data_set_file)
-	if os.path.exists(pickle_file):
-		with open(pickle_file, 'rb') as f:
-			gray_brick_set = pickle.load(f)
-	else: 
-		gray_brick_set = [] 
-
-
-	# barrel_red_set = []
-	# floor_red_set  = []
-	# wall_red_set   = []
-	# chair_red_set  = []
-	# yellow_wall_set= []
-	# gray_brick_set = []
-
+		ids = np.array([])
 
 	num_images = 0 
 	for image in image_files:
@@ -137,134 +104,149 @@ def main():
 		pl.title("left click: line segment         right click: close region. Let draw barrel RED")
 
 		# let user draw first ROI which is barrel RED 
-		print '-- Draw ROI of barrel (red) '
-		barrel_red_ROI = roipoly(roicolor='r') #let user draw first ROI
+		print '-- Draw ROI:  '
+		ROI = roipoly(roicolor='r') #let user draw first ROI
+
+		color = int(raw_input("---- What color it is? (barrel: 1, floor red: 2, wall red: 3, chair red: 4, yellow: 5, wall gray brick: 6) : "))
 
 		# show the image with the first ROI
 		pl.imshow(img, aspect='auto')
-		barrel_red_ROI.displayROI()
+		ROI.displayROI()
 		# print np.shape(img)
-		barrel_grid = ROI2RGB(barrel_red_ROI, img)
-		# print 'barrel grid ', len(barrel_grid), barrel_grid[0]
+		grid = makeGrid(ROI, img)
 		
 		# # Uncomment the following two lines before running test_saved_pickle() 
-		# img[barrel_grid] = (0,0,0)
-		# barrel_red_set.append(img)
-		# # Comment the following line before running test_saved_pickle() 
-		barrel_red_set.append(img[barrel_grid])
+		# img[grid] = (0,0,0)
+		# ROI.append(img)
+		# # Comment the following lines before running test_saved_pickle() 
+
+		# append data 
+		# train data 
+		locate_pixels = np.where(grid)
+		num_pixels = np.shape(locate_pixels)[1]
+		img_ids = np.array([image for i in range(num_pixels)])
+		color_ids = np.array([color for i in range(num_pixels)])
+
+		# train
+		try:
+			train = np.concatenate((train, np.vstack(([locate_pixels[0].T],[locate_pixels[1].T])).T), axis=0)
+		except: 
+			train = np.vstack(([locate_pixels[0].T],[locate_pixels[1].T])).T
+		# target 
+		try: 
+			target = np.concatenate((target,color_ids), axis=0)
+		except: 
+			target = color_ids
+		try: 
+			ids = np.concatenate((ids,img_ids), axis=0)
+		except:
+			ids = img_ids
+		# print train[0]
+		# print train[-1]
+		# print np.shape(train)
+		# print np.shape(target)
+		# print np.shape(ids)
+		# print 'grid and image shape'
+		# print np.shape(grid)
+		# print np.shape(img)
+		# print np.shape(img_ids)
+		# print grid[0]
+
+
 		pl.imshow(img, aspect='auto')
-		print "-- Sofar, total number of element in barrel red set: ", np.shape(barrel_red_set)
+		print "-- Sofar, total number of element in the train set: ", np.shape(train)
 		
 
 		# add RGB of the pixels to the corresponding data array 
 
 
 		while True: 
-			command = raw_input("-- Draw ROI for another color YN ?:  ")
+			command = raw_input("-- Draw ROI for another color Y/N ?:  ")
 			command = command.lower()
 			if command == 'n' or command == 'N':
 				break 
 			# else, let user draw next ROI
 			print "--- Draw next ROI...."
+			print "----  barrel: 1, floor red: 2, wall red: 3, chair red: 4, yellow: 5, wall gray brick: 6 !! "
 			ROI = roipoly(roicolor='b') #let user draw ROI
-			color = int(raw_input("---- What color it is? (floor red: 2, wall red: 3, chair red: 4, yellow: 5, gray brick: 6) : "))
+			color = int(raw_input("---- What color it is? (barrel: 1, floor red: 2, wall red: 3, chair red: 4, yellow: 5, wall gray brick: 6) : "))
 			pl.imshow(img, aspect='auto')
 			ROI.displayROI()
 			print "----- Color has been segmented:", color, " or ", color_dict[color]
 
-			grid = ROI2RGB(ROI, img)
-			if color == 2:
-				floor_red_set.append(img[grid])
-				print "-- Sofar, total number of element in ", color_dict[color], "set:", np.shape(floor_red_set)
-			elif color == 3: 
-				wall_red_set.append(img[grid])
-				print "-- Sofar, total number of element in ", color_dict[color], "set:", np.shape(wall_red_set)
-			elif color == 4: 
-				chair_red_set.append(img[grid])
-				print "-- Sofar, total number of element in ", color_dict[color], "set:", np.shape(chair_red_set)
-			elif color == 5: 
-				yellow_wall_set.append(img[grid])
-				print "-- Sofar, total number of element in ", color_dict[color], "set:", np.shape(yellow_wall_set)
-			else 		  : 
-				gray_brick_set.append(img[grid])
-				print "-- Sofar, total number of element in ", color_dict[color], "set:", np.shape(gray_brick_set)
+			grid = makeGrid(ROI, img)
+
+			# append data 
+			# train data 
+			locate_pixels = np.where(grid)
+			num_pixels = np.shape(locate_pixels)[1]
+			img_ids = np.array([image for i in range(num_pixels)])
+			color_ids = np.array([color for i in range(num_pixels)])
+
+			# train
+			train = np.concatenate((train, np.vstack(([locate_pixels[0].T],[locate_pixels[1].T])).T), axis=0)
+			# target 
+			target = np.concatenate((target,color_ids), axis=0)
+			ids = np.concatenate((ids,img_ids), axis=0)
+
+			
 		# cv2.waitKey(27)
 		# clear window to avoid inerference 	
 		pl.clf()
 
+		if num_images >= 10:
+			command = raw_input("-- Continue segmentation?  Y/N ?:  ")
+			command = command.lower()
+			if command == 'n' or command == 'N':
+				break 
+
 	# dump datasets to pickle files 
 	if not os.path.exists(pickle_folder):
 		os.makedirs(pickle_folder)
-	if barrel_red_set:
-		# remove old file 
-		data_set_file = "barrel_red_set" + ".pickle"
-		pickle_file = os.path.join(pickle_folder,data_set_file)
-		if os.path.exists(pickle_file):
-			os.remove(pickle_file)
-		# create new file 
-		dump_pickle(pickle_folder, "barrel_red_set", barrel_red_set)
-	if floor_red_set:
-		# remove old file 
-		data_set_file = "floor_red_set" + ".pickle"
-		pickle_file = os.path.join(pickle_folder,data_set_file)
-		if os.path.exists(pickle_file):
-			os.remove(pickle_file)
-		# create new file 
-		dump_pickle(pickle_folder, "floor_red_set", floor_red_set)
-	if wall_red_set:
-		# remove old file 
-		data_set_file = "wall_red_set" + ".pickle"
-		pickle_file = os.path.join(pickle_folder,data_set_file)
-		if os.path.exists(pickle_file):
-			os.remove(pickle_file)
-		# create new file 
-		dump_pickle(pickle_folder, "wall_red_set", wall_red_set)
-	if chair_red_set:
-		# remove old file 
-		data_set_file = "chair_red_set" + ".pickle"
-		pickle_file = os.path.join(pickle_folder,data_set_file)
-		if os.path.exists(pickle_file):
-			os.remove(pickle_file)
-		# create new file 
-		dump_pickle(pickle_folder, "chair_red_set", chair_red_set)
-	if yellow_wall_set:
-		# remove old file 
-		data_set_file = "yellow_wall_set" + ".pickle"
-		pickle_file = os.path.join(pickle_folder,data_set_file)
-		if os.path.exists(pickle_file):
-			os.remove(pickle_file)
-		# create new file 
-		dump_pickle(pickle_folder, "yellow_wall_set", yellow_wall_set)
-	if gray_brick_set:
-		# remove old file 
-		data_set_file = "gray_brick_set" + ".pickle"
-		pickle_file = os.path.join(pickle_folder,data_set_file)
-		if os.path.exists(pickle_file):
-			os.remove(pickle_file)
-		# create new file
-		dump_pickle(pickle_folder, "gray_brick_set", gray_brick_set)
+	# remove old file 
+	data_set_file = "train" + ".pickle"
+	pickle_file = os.path.join(pickle_folder,data_set_file)
+	if os.path.exists(pickle_file):
+		os.remove(pickle_file)
+	# create new file 
+	dump_pickle(pickle_folder, "train", train)
+	# remove old file 
+	data_set_file = "target" + ".pickle"
+	pickle_file = os.path.join(pickle_folder,data_set_file)
+	if os.path.exists(pickle_file):
+		os.remove(pickle_file)
+	# create new file 
+	dump_pickle(pickle_folder, "target", target)
 
-# def test_saved_pickle():
-# 	"""This funtion is used to make sure that the content that we saved to each dataset is correct! 
-# 		Before running this function, comment and uncomment somelines mentioned in main() function"""
-# 	pickle_folder = "data/pickle_folder"
-# 	files = os.listdir(pickle_folder)
-# 	for file in files:
-# 		file_name = os.path.join(pickle_folder,file)
-# 		print 'file_name:',file_name
-# 		try:
-# 			with open(file_name, 'rb') as f:
-# 				barrel_red_set = pickle.load(f)
-# 				print np.shape(barrel_red_set)
-# 				pl.imshow(barrel_red_set[1])
-# 				pl.show()
-# 				time.sleep(100)
-# 		except Exception as e:
-# 			print('Unable to process data from', file_name, ':', e)
-# 			raise
+	# remove old file 
+	data_set_file = "ids" + ".pickle"
+	pickle_file = os.path.join(pickle_folder,data_set_file)
+	if os.path.exists(pickle_file):
+		os.remove(pickle_file)
+	# create new file 
+	dump_pickle(pickle_folder, "ids", ids)
+
+
+def test_saved_pickle():
+	"""This funtion is used to make sure that the content that we saved to each dataset is correct! 
+		Before running this function, comment and uncomment somelines mentioned in main() function"""
+	pickle_folder = "data/pickle_folder"
+	files = os.listdir(pickle_folder)
+	for file in files:
+		file_name = os.path.join(pickle_folder,file)
+		print 'file_name:',file_name
+		try:
+			with open(file_name, 'rb') as f:
+				barrel_red_set = pickle.load(f)
+				print np.shape(barrel_red_set)
+				print barrel_red_set[0]
+				print barrel_red_set[-1]
+		except Exception as e:
+			print('Unable to process data from', file_name, ':', e)
+			raise
 
 if __name__=="__main__":
 	main()
-	# test_saved_pickle()
+	test_saved_pickle()
 
 
