@@ -1,4 +1,5 @@
 
+#!/usr/bin/python
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 from mpl_toolkits.mplot3d import Axes3D
@@ -9,10 +10,12 @@ import cv2
 from sklearn import datasets
 from sklearn.cross_validation import StratifiedKFold
 from sklearn.externals.six.moves import xrange
-from sklearn.mixture import GMM
+from sklearn.mixture import GaussianMixture
 from six.moves import cPickle as pickle
 import time
+from sklearn.cluster import KMeans
 print 'Import has been done!!'
+min_red_likelihood = 7e-12
 
 class DATA:
 	def __init__(self,data_set,target_set,ids_set):
@@ -34,7 +37,7 @@ def make_ellipses(gmm, ax):
         ell.set_alpha(0.5)
         ax.add_artist(ell)
 
-def load_train_data(colorspace='hsv'):
+def load_train_data(transform_color='on',colorspace='hsv'):
 	image_folder = "data/Proj1_Train"
 	image_files = os.listdir(image_folder)
 	pickle_folder = "data/pickle_folder"
@@ -67,6 +70,9 @@ def load_train_data(colorspace='hsv'):
 	except Exception as e:
 		print('Unable to process data from', ids_file, ':', e)
 		raise
+
+	if transform_color=='off':
+		return [train_set_pixels,target_set,ids_set]
 
 	# # Test segmented image by displaying 
 	# for image_name in image_files:
@@ -128,7 +134,7 @@ def load_train_data(colorspace='hsv'):
 
 	return [train_set,target_set,ids_set]
 
-def main(color_space='hsv'):
+def tune_GaussianMixtures(color_space='hsv'):
 	iris = datasets.load_iris()
 	[train_set,target_set,ids_set] = load_train_data()
 	print np.shape(train_set)
@@ -145,9 +151,9 @@ def main(color_space='hsv'):
 	# red_target = target_set[target_set == 1]#[0:1000]
 	# red_ids = ids_set[target_set == 1] # [0:1000]
 	# data_set = DATA(red_train,red_target,red_ids)
-	
+
 	data_set = DATA(train_set,target_set,ids_set)
-	
+
 	print np.shape(data_set.data)
 	print np.shape(data_set.target)
 	print np.shape(data_set.target)
@@ -168,61 +174,182 @@ def main(color_space='hsv'):
 
 	n_classes = len(np.unique(y_train))
 
-	# Try GMMs using different types of covariances.
-	# classifiers = dict((covar_type, GMM(n_components=n_classes,
-	#                     covariance_type=covar_type, init_params='wc', n_iter=20))
-	#                    for covar_type in ['spherical', 'diag', 'tied', 'full'])
-	classifiers = dict((covar_type, GMM(n_components=n_classes,
-	                    covariance_type=covar_type, init_params='wc', n_iter=20))
-	                   for covar_type in ['spherical', 'diag', 'tied','full'])
+	# Extract X_train, X_test... for each class 
+	c1_X_train = X_train[y_train==1]
+	c1_X_test = X_test[y_test==1]
+	c1_y_train = y_train[y_train==1]
+	c1_y_test = y_test[y_test==1]
 
-	n_classifiers = len(classifiers)
+	c2_X_train = X_train[y_train==2]
+	c2_X_test = X_test[y_test==2]
+	c2_y_train = y_train[y_train==2]
+	c2_y_test = y_test[y_test==2]
 
-	plt.figure(figsize=(3 * n_classifiers / 2, 6))
-	plt.subplots_adjust(bottom=.01, top=0.95, hspace=.15, wspace=.05,
-	                    left=.01, right=.99)
+	c3_X_train = X_train[y_train==3]
+	c3_X_test = X_test[y_test==3]
+	c3_y_train = y_train[y_train==3]
+	c3_y_test = y_test[y_test==3]
 
-	# Training using one GMM consists of a number of components equal to number of classes. 
-	for index, (name, classifier) in enumerate(classifiers.items()):
-	    # Since we have class labels for the training data, we can
-	    # initialize the GMM parameters in a supervised manner.
+	c4_X_train = X_train[y_train==4]
+	c4_X_test = X_test[y_test==4]
+	c4_y_train = y_train[y_train==4]
+	c4_y_test = y_test[y_test==4]
 
-	    classifier.means_ = np.array([X_train[y_train==i].mean(axis=0)
-	                                  for i in xrange(1,n_classes+1)])
-	    print classifier.means_
-	    # exit()
-	    # Train the other parameters using the EM algorithm.
-	    classifier.fit(X_train)
+	c5_X_train = X_train[y_train==5]
+	c5_X_test = X_test[y_test==5]
+	c5_y_train = y_train[y_train==5]
+	c5_y_test = y_test[y_test==5]
 
-	    h = plt.subplot(2, n_classifiers / 2, index + 1)
-	    make_ellipses(classifier, h)
+	c6_X_train = X_train[y_train==6]
+	c6_X_test = X_test[y_test==6]
+	c6_y_train = y_train[y_train==6]
+	c6_y_test = y_test[y_test==6]
 
-	    for n, color in enumerate('rgb'):
-	        data = data_set.data[data_set.target == n]
-	        plt.scatter(data[:, 0], data[:, 1], 0.8, color=color)
-	    # Plot the test data with crosses
-	    for n, color in enumerate('rgb'):
-	        data = X_test[y_test == n]
-	        plt.plot(data[:, 0], data[:, 1], 'x', color=color)
+	print  'len c2 train:',len(c2_X_train)
+	print 'len c2 test:', len(c2_y_test)
 
-	    y_train_pred = classifier.predict(X_train)
-	    train_accuracy = np.mean(y_train_pred.ravel() == y_train.ravel()) * 100
-	    plt.text(0.05, 0.9, 'Train accuracy: %.1f' % train_accuracy,
-	             transform=h.transAxes)
+	# Number of components for each class 
+	c1_comps = 2
+	c2_comps = 2 
+	c3_comps = 2 
+	c4_comps = 2
+	c5_comps = 2
+	c6_comps = 3
 
-	    y_test_pred = classifier.predict(X_test)
-	    test_accuracy = np.mean(y_test_pred.ravel() == y_test.ravel()) * 100
-	    plt.text(0.05, 0.8, 'Test accuracy: %.1f' % test_accuracy,
-	             transform=h.transAxes)
+	# c2_classifiers = dict((covar_type, GaussianMixture(n_components=c2_comps,
+	#                     covariance_type=covar_type, init_params='kmeans', max_iter=20))
+	#                    for covar_type in ['spherical', 'diag', 'tied','full'])
+	# apply Kmeans to find the means of components of each class 
+	c1_classifier = GaussianMixture(n_components=c1_comps, covariance_type='diag', init_params='kmeans', max_iter=20)	                  
+	c1_kmeans = KMeans(n_clusters=c1_comps,random_state=0).fit(c1_X_train)
 
-	    plt.xticks(())
-	    plt.yticks(())
-	    plt.title(name)
-
-	plt.legend(loc='lower right', prop=dict(size=12))
+	c2_classifier = GaussianMixture(n_components=c2_comps, covariance_type='diag', init_params='kmeans', max_iter=20)
+	c2_kmeans = KMeans(n_clusters=c2_comps,random_state=0).fit(c2_X_train)
 
 
-	plt.show()
+	c3_classifier = GaussianMixture(n_components=c3_comps, covariance_type='diag', init_params='kmeans', max_iter=20)
+	c3_kmeans = KMeans(n_clusters=c3_comps,random_state=0).fit(c3_X_train)
+
+	c4_classifier = GaussianMixture(n_components=c4_comps, covariance_type='diag', init_params='kmeans', max_iter=20)
+	c4_kmeans = KMeans(n_clusters=c4_comps,random_state=0).fit(c4_X_train)
+
+	c5_classifier = GaussianMixture(n_components=c5_comps, covariance_type='diag', init_params='kmeans', max_iter=20)
+	c5_kmeans = KMeans(n_clusters=c5_comps,random_state=0).fit(c5_X_train)
+
+	c6_classifier = GaussianMixture(n_components=c6_comps, covariance_type='diag', init_params='kmeans', max_iter=20)
+	c6_kmeans = KMeans(n_clusters=c6_comps,random_state=0).fit(c6_X_train)
+
+
+
+	# print c2_kmeans.labels_
+	# print len(c2_X_train[c2_kmeans.labels_==0])
+	# print np.mean(c2_X_train[c2_kmeans.labels_==0],axis=0)
+	# print len(c2_X_train[c2_kmeans.labels_==1])
+	# print np.mean(c2_X_train[c2_kmeans.labels_==1],axis=0)
+	# print np.mean(c2_X_train,axis=0)
+
+
+	# fig = plt.figure()
+	# plt.subplots_adjust(bottom=.01, top=0.95, hspace=.15, wspace=.05, left=.01, right=.99)
+
+
+	# Since we have class labels for the training data, we can
+	# initialize the GaussianMixture parameters in a supervised manner.
+
+	c1_classifier.means_ = np.array([c1_X_train[c1_kmeans.labels_==i].mean(axis=0) for i in xrange(c1_comps)])
+	# Train the other parameters using the EM algorithm.
+	c1_classifier.fit(c1_X_train)
+	
+
+	# Display the GaussianMixture of c1 
+	# ax = fig.add_subplot(231, projection='3d')
+	# ax.scatter(c1_X_train[c1_y_train_pred==0][:, 0], c1_X_train[c1_y_train_pred==0][:, 1], c1_X_train[c1_y_train_pred==0][:, 2], color='r',label='red')
+	# ax.scatter(c1_X_train[c1_y_train_pred==1][:, 0], c1_X_train[c1_y_train_pred==1][:, 1], c1_X_train[c1_y_train_pred==1][:, 2], color='b',label='red')
+	# plt.show()
+	
+
+	c2_classifier.means_ = np.array([c2_X_train[c2_kmeans.labels_==i].mean(axis=0) for i in xrange(c2_comps)])
+	# Train the other parameters using the EM algorithm.
+	c2_classifier.fit(c2_X_train)
+	
+	c3_classifier.means_ = np.array([c3_X_train[c3_kmeans.labels_==i].mean(axis=0) for i in xrange(c3_comps)])
+	# Train the other parameters using the EM algorithm.
+	c3_classifier.fit(c3_X_train)
+
+
+
+	c4_classifier.means_ = np.array([c4_X_train[c4_kmeans.labels_==i].mean(axis=0) for i in xrange(c4_comps)])
+	# Train the other parameters using the EM algorithm.
+	c4_classifier.fit(c4_X_train)
+
+
+	c5_classifier.means_ = np.array([c5_X_train[c5_kmeans.labels_==i].mean(axis=0) for i in xrange(c5_comps)])
+	# Train the other parameters using the EM algorithm.
+	c5_classifier.fit(c5_X_train)
+	
+
+	c6_classifier.means_ = np.array([c6_X_train[c6_kmeans.labels_==i].mean(axis=0) for i in xrange(c6_comps)])
+	# Train the other parameters using the EM algorithm.
+	c6_classifier.fit(c6_X_train)
+
+
+	# uncommet two following lines to check accuracy of test set 
+	c1_X_train = c1_X_test
+	c1_y_train = c1_y_test
+
+	c1_X_train_score_on_c1 = np.exp(c1_classifier.score_samples(c1_X_train))
+	c1_X_train_score_on_c2 = np.exp(c2_classifier.score_samples(c1_X_train))
+	c1_X_train_score_on_c3 = np.exp(c3_classifier.score_samples(c1_X_train))
+	c1_X_train_score_on_c4 = np.exp(c4_classifier.score_samples(c1_X_train))
+	# ignore yellow color as it leads to large error in choosing a red color as yellow. 
+	# c1_X_train_score_on_c5 = np.exp(c5_classifier.score_samples(c1_X_train))
+	c1_X_train_score_on_c6 = np.exp(c6_classifier.score_samples(c1_X_train))
+
+
+	# print np.shape(np.array(c1_X_train_score_on_c1[0]))
+	# Min of likelihood of c1_score_on_c1 is 8.69e-12
+	print c1_X_train_score_on_c1.min(),c1_X_train_score_on_c1.max()
+	print c1_X_train_score_on_c2.min(),c1_X_train_score_on_c2.max()
+	print c1_X_train_score_on_c3.min(),c1_X_train_score_on_c3.max()
+	print c1_X_train_score_on_c4.min(),c1_X_train_score_on_c4.max()
+	# print c1_X_train_score_on_c4.min(),c1_X_train_score_on_c5.max()
+	print c1_X_train_score_on_c6.min(),c1_X_train_score_on_c6.max()
+
+	# Add a row of 0,0,0.... to make sure that the returned index matches classes [1, 2, ... ,6]
+	c1_zeros_row = np.zeros(np.shape(c1_X_train_score_on_c1))
+	
+	# c1_y_train_score_matrix = np.array([c1_zeros_row,c1_X_train_score_on_c1,c1_X_train_score_on_c2,c1_X_train_score_on_c3,c1_X_train_score_on_c4,c1_X_train_score_on_c5,c1_X_train_score_on_c6])
+	c1_y_train_score_matrix = np.array([c1_zeros_row,c1_X_train_score_on_c1,c1_X_train_score_on_c2,c1_X_train_score_on_c3,c1_X_train_score_on_c4,c1_X_train_score_on_c6])
+	c1_y_train_pred = np.argmax(c1_y_train_score_matrix,axis=0) 
+	print c1_y_train_pred, type(c1_y_train_pred), np.shape(c1_y_train_pred)
+	print np.unique(c1_y_train_pred)
+
+	# Train accuracy = 94.81%
+	# Test accuracy = 91.%
+	# print 'Wrong percentage total: ' ,count*100.0/total_num, [count0*100.0/total_num,count2*100.0/total_num,count3*100.0/total_num,count4*100.0/total_num, count5*100.0/total_num,count6*100.0/total_num]
+	print 'Shape of two arrays:', np.shape(c1_y_train_pred), np.shape(c1_y_train)
+
+	c1_train_accuracy = np.mean(c1_y_train_pred == c1_y_train) * 100
+	print 'Accuracy: ',c1_train_accuracy
+	print np.mean(c1_y_train_pred==1),np.mean( c1_y_train_pred==2),np.mean(c1_y_train_pred==3),np.mean( c1_y_train_pred==4),np.mean( c1_y_train_pred==5),np.mean( c1_y_train_pred==6)
+	
+	return [c1_classifier,c2_classifier,c3_classifier,c4_classifier,c5_classifier,c6_classifier]
+	exit(0)
+
+	# print '--------- C1 ------------'
+	# print '%f'%c1_train_accuracy,'\t %f'%c1_test_accuracy
+	# print '--------- c2 ------------'
+	# print '%f'%c2_train_accuracy,'\t %f'%c2_test_accuracy
+	# print '--------- c3 ------------'
+	# print '%f'%c3_train_accuracy,'\t %f'%c3_test_accuracy
+	# print '--------- c4 ------------'
+	# print '%f'%c4_train_accuracy,'\t %f'%c4_test_accuracy
+	# print '--------- c5 ------------'
+	# print '%f'%c5_train_accuracy,'\t %f'%c5_test_accuracy
+	# print '--------- c6 ------------'
+	# print '%f'%c6_train_accuracy,'\t %f'%c6_test_accuracy
+	
+
 
 def visual_color_distribution(color_space='hsv',color_ids=[1],show='on'):
 	[train_set,target_set,ids_set] = load_train_data(color_space)
@@ -262,24 +389,139 @@ def visual_color_distribution(color_space='hsv',color_ids=[1],show='on'):
 	# ax.set_ylabel('Y Label')
 	# ax.set_zlabel('Z Label')
 	# ax.set_title('Color distribution id: %s',str(color_id))
-	image_file = '/home/tynguyen/proj1_cis650/' + color_space + '.png'
+	image_file = '/home/tynguyen/cis650_projects/project1/figures/' + color_space + '.png'
 	fig.savefig(image_file)   # save the figure to file
 	if show == 'off':
 		plt.close(fig)    # close the figure
 	else: 
 		plt.show()
 
+def visual_image_segmented(colorspace='hsv'):
+	image_folder = "data/Proj1_Train"
+	image_files = os.listdir(image_folder)
+	# [train_set_pixels,target_set,ids_set] = load_train_data(transform_color='off')
+	[c1_classifier,c2_classifier,c3_classifier,c4_classifier,c5_classifier,c6_classifier] = tune_GaussianMixtures()
+
+	for image_name in image_files:	
+		image_file = os.path.join(image_folder,image_name)
+		img = cv2.imread(image_file)
+		if colorspace == 'RGB':
+			img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+		elif colorspace == 'YCrCb':
+			img = cv2.cvtColor(img, cv2.COLOR_BGR2YCR_CB)
+		elif colorspace == 'LUV':
+			img = cv2.cvtColor(img, cv2.COLOR_BGR2LUV)
+		elif colorspace == 'HLS':
+			img = cv2.cvtColor(img, cv2.COLOR_BGR2HLS)
+		else:
+			img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+
+		nx, ny, nz = np.shape(img)
+		# X_train = np.array([x for x in img[:,2]])
+		X_train = np.ones((nx*ny,3))
+		X_train_pixels = np.ones((nx*ny,2),dtype=np.uint32)
+		
+		for i in range(nx):
+			for j in range(ny):
+				X_train[i*ny+j] = img[i,j]
+				X_train_pixels[i*ny+j] = [i,j]
+		# x, y = np.meshgrid(np.arange(nx), np.arange(ny))
+		# x, y = x.flatten(), y.flatten()
+		# X_train_pixels = np.vstack((x,y)).T
+		# y_train = np.ones((1,num_pixels))
+		# index = 0 
+		# for x in X_train_pixels:
+		# 	print 'pixel: ', x 
+		# 	same_image_indices = np.where(ids_set==image_name)[0]
+		# 	print 'Possible pixels in train_set:', train_set_pixels[same_image_indices]
+		# 	same_pixels_indices = np.where((train_set_pixels==x).all(axis=1))[0]
+		# 	# print same_pixels_indices
+		# 	# print same_image_indices
+		# 	# print sum(np.in1d(same_image_indices,same_pixels_indices))
+		# 	intersect_index = same_image_indices[np.in1d(same_image_indices,same_pixels_indices)]
+		# 	print intersect_index
+		# 	if len(intersect_index) == 0:
+		# 		y_train = 0 
+		# 		continue 
+		# 	print 'Intersect index: ', intersect_index
+		# 	print '-Where image is: ', image_name, ids_set[intersect_index]
+		# 	print '- And pixels are: ', x, train_set[intersect_index]
+		# 	y_train[index] = target_set[intersect_index]
+		
+	
+		
+		
+		
+		X_train_score_on_c1 = np.exp(c1_classifier.score_samples(X_train))
+		X_train_score_on_c2 = np.exp(c2_classifier.score_samples(X_train))
+		X_train_score_on_c3 = np.exp(c3_classifier.score_samples(X_train))
+		X_train_score_on_c4 = np.exp(c4_classifier.score_samples(X_train))
+		# ignore yellow color as it leads to large error in choosing a red color as yellow. 
+		X_train_score_on_c5 = np.exp(c5_classifier.score_samples(X_train))
+		X_train_score_on_c6 = np.exp(c6_classifier.score_samples(X_train))
+
+
+		# print np.shape(np.array(X_train_score_on_c1[0]))
+		# Min of likelihood of c1_score_on_c1 is 8.69e-12
+		print X_train_score_on_c1.min(),X_train_score_on_c1.max()
+		# print X_train_score_on_c2.min(),X_train_score_on_c2.max()
+		print X_train_score_on_c3.min(),X_train_score_on_c3.max()
+		print X_train_score_on_c4.min(),X_train_score_on_c4.max()
+		print X_train_score_on_c5.min(),X_train_score_on_c5.max()
+		# print X_train_score_on_c6.min(),X_train_score_on_c6.max()
+
+		# Add a row of 0,0,0.... to make sure that the returned index matches classes [1, 2, ... ,6]
+		# We can set a threshold here so that if the likelihood smaller than this threshold, just get rid of. 
+		zeros_row = np.zeros(np.shape(X_train_score_on_c1)) + min_red_likelihood
+		
+		# y_train_score_matrix = np.array([zeros_row,X_train_score_on_c1,X_train_score_on_c2,X_train_score_on_c3,X_train_score_on_c4,X_train_score_on_c5,X_train_score_on_c6])
+		y_train_score_matrix = np.array([zeros_row,X_train_score_on_c1,X_train_score_on_c2,X_train_score_on_c3,X_train_score_on_c4,X_train_score_on_c5,X_train_score_on_c6])
+		
+		y_train_pred = np.argmax(y_train_score_matrix,axis=0) 
+		print y_train_pred, type(y_train_pred), np.shape(y_train_pred)
+		print np.unique(y_train_pred)
+
+		# print 'Shape of two arrays:', np.shape(y_train_pred), np.shape(y_train)
+		# error = y_train_pred != y_train
+		# print 'Error in not recognizing red color'
+		# print np.mean(error[y_train_pred==2*y_train==1]),np.mean(error[y_train_pred==3*y_train==1]),np.mean(error[y_train_pred==4*y_train==1]),np.mean(error[y_train_pred==5*y_train==1]),np.mean(error[y_train_pred==6*y_train==1])
+		# print 'Error in mistakenly recognizing red color'
+		# print np.mean(error[y_train_pred==1*y_train==2]),np.mean(error[y_train_pred==1*y_train==3]),np.mean(error[y_train_pred==1*y_train==4]),np.mean(error[y_train_pred==1*y_train==5]),np.mean(error[y_train_pred==1*y_train==6])
+		# train_accuracy = np.mean(y_train_pred == y_train) * 100
+		# print 'Accuracy: ',train_accuracy
+		# print 'Error in each color'
+		# print np.mean(error[y_train==1]),np.mean(error[y_train==2]), np.mean(error[y_train==3]),np.mean(error[y_train==4]),np.mean(error[y_train==5]),np.mean(error[y_train==6])
+
+		
+		# # For debugging: show segmented image
+		print 'Number of red prediction:', sum(y_train_pred==1)
+		img = cv2.cvtColor(img, cv2.COLOR_HSV2RGB)
+		img[:,:] = (0,0,0) 
+		c1_locate_pixels = X_train_pixels[y_train_pred==1]
+		print 'Red pixels: ', c1_locate_pixels
+		img[c1_locate_pixels[:,0],c1_locate_pixels[:,1]] = (255,0,0)	
+		plt.imshow(img,aspect='auto')
+		plt.show()
+		command = raw_input("continue display?")
+		if command == 'N' or command == 'n':
+			break 
+
+
 if __name__ == '__main__':
-	# main('hsv')
+	# tune_GaussianMixtures('hsv')
+	visual_image_segmented()
 	# load_train_data()
-	visual_color_distribution('RGB',[1,2,3,4,5,6],show='off')
+	# visual_color_distribution('RGB',[1,2,3,4,5,6],show='off')
+	# visual_color_distribution('LUV',[1,2,3,4,5,6],show='off')
+	# visual_color_distribution('YCrCb',[1,2,3,4,5,6],show='off')
+	# visual_color_distribution('HLS',[1,2,3,4,5,6],show='off')
 	
 ### temporary 
 # import numpy as np 
 # # create mixture of three Gaussians
 # num_components=3
 # num_max_samples=100
-# gmm=GMM(num_components)
+# gmm=GaussianMixture(num_components)
 
 # dimension=3
 
