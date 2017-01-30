@@ -4,6 +4,9 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.cm as cm
+from skimage import data, util
+import skimage
+from skimage.measure import label, regionprops
 import numpy as np
 import os 
 import cv2 
@@ -15,7 +18,8 @@ from six.moves import cPickle as pickle
 import time
 from sklearn.cluster import KMeans
 print 'Import has been done!!'
-min_red_likelihood = 7e-12
+min_red_likelihood = 7e-10
+AREA_TOL = 100 # minimum pixel area of a barrel in the image 
 
 class DATA:
 	def __init__(self,data_set,target_set,ids_set):
@@ -302,7 +306,7 @@ def tune_GaussianMixtures(color_space='hsv'):
 	c1_X_train_score_on_c3 = np.exp(c3_classifier.score_samples(c1_X_train))
 	c1_X_train_score_on_c4 = np.exp(c4_classifier.score_samples(c1_X_train))
 	# ignore yellow color as it leads to large error in choosing a red color as yellow. 
-	# c1_X_train_score_on_c5 = np.exp(c5_classifier.score_samples(c1_X_train))
+	c1_X_train_score_on_c5 = np.exp(c5_classifier.score_samples(c1_X_train))
 	c1_X_train_score_on_c6 = np.exp(c6_classifier.score_samples(c1_X_train))
 
 
@@ -312,25 +316,23 @@ def tune_GaussianMixtures(color_space='hsv'):
 	print c1_X_train_score_on_c2.min(),c1_X_train_score_on_c2.max()
 	print c1_X_train_score_on_c3.min(),c1_X_train_score_on_c3.max()
 	print c1_X_train_score_on_c4.min(),c1_X_train_score_on_c4.max()
-	# print c1_X_train_score_on_c4.min(),c1_X_train_score_on_c5.max()
+	print c1_X_train_score_on_c4.min(),c1_X_train_score_on_c5.max()
 	print c1_X_train_score_on_c6.min(),c1_X_train_score_on_c6.max()
 
 	# Add a row of 0,0,0.... to make sure that the returned index matches classes [1, 2, ... ,6]
 	c1_zeros_row = np.zeros(np.shape(c1_X_train_score_on_c1))
 	
 	# c1_y_train_score_matrix = np.array([c1_zeros_row,c1_X_train_score_on_c1,c1_X_train_score_on_c2,c1_X_train_score_on_c3,c1_X_train_score_on_c4,c1_X_train_score_on_c5,c1_X_train_score_on_c6])
-	c1_y_train_score_matrix = np.array([c1_zeros_row,c1_X_train_score_on_c1,c1_X_train_score_on_c2,c1_X_train_score_on_c3,c1_X_train_score_on_c4,c1_X_train_score_on_c6])
+	c1_y_train_score_matrix = np.array([c1_zeros_row,c1_X_train_score_on_c1,c1_X_train_score_on_c2,c1_X_train_score_on_c3,c1_X_train_score_on_c4,c1_X_train_score_on_c5,c1_X_train_score_on_c6])
 	c1_y_train_pred = np.argmax(c1_y_train_score_matrix,axis=0) 
-	print c1_y_train_pred, type(c1_y_train_pred), np.shape(c1_y_train_pred)
-	print np.unique(c1_y_train_pred)
+	# print c1_y_train_pred, type(c1_y_train_pred), np.shape(c1_y_train_pred)
+	# print np.unique(c1_y_train_pred)
 
 	# Train accuracy = 94.81%
 	# Test accuracy = 91.%
-	# print 'Wrong percentage total: ' ,count*100.0/total_num, [count0*100.0/total_num,count2*100.0/total_num,count3*100.0/total_num,count4*100.0/total_num, count5*100.0/total_num,count6*100.0/total_num]
-	print 'Shape of two arrays:', np.shape(c1_y_train_pred), np.shape(c1_y_train)
 
 	c1_train_accuracy = np.mean(c1_y_train_pred == c1_y_train) * 100
-	print 'Accuracy: ',c1_train_accuracy
+	print 'Training Accuracy: ',c1_train_accuracy
 	print np.mean(c1_y_train_pred==1),np.mean( c1_y_train_pred==2),np.mean(c1_y_train_pred==3),np.mean( c1_y_train_pred==4),np.mean( c1_y_train_pred==5),np.mean( c1_y_train_pred==6)
 	
 	return [c1_classifier,c2_classifier,c3_classifier,c4_classifier,c5_classifier,c6_classifier]
@@ -396,13 +398,19 @@ def visual_color_distribution(color_space='hsv',color_ids=[1],show='on'):
 	else: 
 		plt.show()
 
-def visual_image_segmented(colorspace='hsv'):
+def display_segmented_image(colorspace='hsv'):
 	image_folder = "data/Proj1_Train"
+	segmented_image_folder = "data/segmented_images"
+	if not os.path.exists(segmented_image_folder):
+		os.makedirs(segmented_image_folder)
 	image_files = os.listdir(image_folder)
 	# [train_set_pixels,target_set,ids_set] = load_train_data(transform_color='off')
 	[c1_classifier,c2_classifier,c3_classifier,c4_classifier,c5_classifier,c6_classifier] = tune_GaussianMixtures()
+	count = 1 
 
 	for image_name in image_files:	
+		print '%d. Image %s ---------------'%(count, image_name)
+		count +=1 
 		image_file = os.path.join(image_folder,image_name)
 		img = cv2.imread(image_file)
 		if colorspace == 'RGB':
@@ -425,6 +433,7 @@ def visual_image_segmented(colorspace='hsv'):
 			for j in range(ny):
 				X_train[i*ny+j] = img[i,j]
 				X_train_pixels[i*ny+j] = [i,j]
+
 		# x, y = np.meshgrid(np.arange(nx), np.arange(ny))
 		# x, y = x.flatten(), y.flatten()
 		# X_train_pixels = np.vstack((x,y)).T
@@ -448,15 +457,11 @@ def visual_image_segmented(colorspace='hsv'):
 		# 	print '- And pixels are: ', x, train_set[intersect_index]
 		# 	y_train[index] = target_set[intersect_index]
 		
-	
-		
-		
 		
 		X_train_score_on_c1 = np.exp(c1_classifier.score_samples(X_train))
 		X_train_score_on_c2 = np.exp(c2_classifier.score_samples(X_train))
 		X_train_score_on_c3 = np.exp(c3_classifier.score_samples(X_train))
 		X_train_score_on_c4 = np.exp(c4_classifier.score_samples(X_train))
-		# ignore yellow color as it leads to large error in choosing a red color as yellow. 
 		X_train_score_on_c5 = np.exp(c5_classifier.score_samples(X_train))
 		X_train_score_on_c6 = np.exp(c6_classifier.score_samples(X_train))
 
@@ -464,11 +469,11 @@ def visual_image_segmented(colorspace='hsv'):
 		# print np.shape(np.array(X_train_score_on_c1[0]))
 		# Min of likelihood of c1_score_on_c1 is 8.69e-12
 		print X_train_score_on_c1.min(),X_train_score_on_c1.max()
-		# print X_train_score_on_c2.min(),X_train_score_on_c2.max()
+		print X_train_score_on_c2.min(),X_train_score_on_c2.max()
 		print X_train_score_on_c3.min(),X_train_score_on_c3.max()
 		print X_train_score_on_c4.min(),X_train_score_on_c4.max()
 		print X_train_score_on_c5.min(),X_train_score_on_c5.max()
-		# print X_train_score_on_c6.min(),X_train_score_on_c6.max()
+		print X_train_score_on_c6.min(),X_train_score_on_c6.max()
 
 		# Add a row of 0,0,0.... to make sure that the returned index matches classes [1, 2, ... ,6]
 		# We can set a threshold here so that if the likelihood smaller than this threshold, just get rid of. 
@@ -478,8 +483,8 @@ def visual_image_segmented(colorspace='hsv'):
 		y_train_score_matrix = np.array([zeros_row,X_train_score_on_c1,X_train_score_on_c2,X_train_score_on_c3,X_train_score_on_c4,X_train_score_on_c5,X_train_score_on_c6])
 		
 		y_train_pred = np.argmax(y_train_score_matrix,axis=0) 
-		print y_train_pred, type(y_train_pred), np.shape(y_train_pred)
-		print np.unique(y_train_pred)
+		# print y_train_pred, type(y_train_pred), np.shape(y_train_pred)
+		# print np.unique(y_train_pred)
 
 		# print 'Shape of two arrays:', np.shape(y_train_pred), np.shape(y_train)
 		# error = y_train_pred != y_train
@@ -493,23 +498,134 @@ def visual_image_segmented(colorspace='hsv'):
 		# print np.mean(error[y_train==1]),np.mean(error[y_train==2]), np.mean(error[y_train==3]),np.mean(error[y_train==4]),np.mean(error[y_train==5]),np.mean(error[y_train==6])
 
 		
-		# # For debugging: show segmented image
-		print 'Number of red prediction:', sum(y_train_pred==1)
+		print '>>>>Number of red prediction:', sum(y_train_pred==1)
+		# Transform to grayscale images: uncomment the following lines 
+		# img = cv2.cvtColor(img, cv2.COLOR_HSV2RGB)
+		# img[:,:] = (0,0,0) 
+		# c1_locate_pixels = X_train_pixels[y_train_pred==1]
+		# # print 'Red pixels: ', c1_locate_pixels
+		# img[c1_locate_pixels[:,0],c1_locate_pixels[:,1]] = (255,255,255)	
+		# plt.imshow(img,aspect='auto')
+		# plt.show()
+		# command = raw_input("continue display?")
+		# if command == 'N' or command == 'n':
+		# 	break 
+
+		# Transform to grayscale images: comment the following lines 
 		img = cv2.cvtColor(img, cv2.COLOR_HSV2RGB)
-		img[:,:] = (0,0,0) 
+		img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+		img[:,:] = 0
 		c1_locate_pixels = X_train_pixels[y_train_pred==1]
-		print 'Red pixels: ', c1_locate_pixels
-		img[c1_locate_pixels[:,0],c1_locate_pixels[:,1]] = (255,0,0)	
-		plt.imshow(img,aspect='auto')
+		# print 'Red pixels: ', c1_locate_pixels
+		img[c1_locate_pixels[:,0],c1_locate_pixels[:,1]] = 1
+		# print 'Shape of gray image:', np.shape(img)
+		# plt.imshow(img,aspect='auto',cmap='gray')
+		# plt.show()
+		# command = raw_input("continue display?")
+		# if command == 'N' or command == 'n':
+		# 	break 
+
+		# save images to pickle files 
+		segmented_image_file = image_name + '.pickle'
+		segmented_image_file = os.path.join(segmented_image_folder,segmented_image_file) 
+		try: 
+			with open(segmented_image_file,'wb') as f:
+				pickle.dump(img,f,pickle.HIGHEST_PROTOCOL)
+		except Exception as e:
+			print('Unable to save data to', segmented_image_file, ':', e)
+
+
+def tune_bouncing_box():
+	segmented_image_folder = "data/segmented_images"
+	image_folder = "data/Proj1_Train"
+	count = 0 
+	
+	for segmented_file_name in os.listdir(segmented_image_folder):
+		image_name = segmented_file_name.strip('.pickle')
+		image_file = os.path.join(image_folder,image_name)
+		orig_image = cv2.imread(image_file)
+		orig_image = cv2.cvtColor(orig_image,cv2.COLOR_BGR2RGB)
+		fig = plt.figure()
+		# count += 1 
+		# if count == 50:
+		# 	break 
+		# command = raw_input("continue display?")
+		# if command == 'N' or command == 'n':
+		# 	break 
+		print '-- Opening image ', segmented_file_name
+		segmented_file = os.path.join(segmented_image_folder,segmented_file_name)
+		try:
+			with open(segmented_file, 'rb') as f:
+				img = pickle.load(f)
+		except Exception as e:
+			print('Unable to process data from', segmented_file, ':', e)
+			raise
+		# fig.add_subplot(121)
+		# plt.imshow(img,aspect='auto',cmap='gray')
+		
+		
+
+		se1 = cv2.getStructuringElement(cv2.MORPH_RECT, (20,20))
+		se2 = cv2.getStructuringElement(cv2.MORPH_RECT, (8,8))
+		mask1 = cv2.morphologyEx(img, cv2.MORPH_CLOSE, se1)
+		mask2 = cv2.morphologyEx(img, cv2.MORPH_OPEN, se2)
+		out = img * mask1
+		out = out*mask2 
+
+		fig.add_subplot(121)
+		plt.imshow(out,aspect='auto',cmap='gray')
+		
+
+		out = util.img_as_ubyte(out)  # > 110
+		label_img = label(out, connectivity=out.ndim)
+		print 'Number of labels:', np.max(skimage.measure.label(out,background=0))
+		props_list = skimage.measure.regionprops(label_img)
+		print 'Number of props: ', len(props_list)
+
+		# fine_props_list = []
+		# for props in props_list:
+		# 	print props.area, props['centroid']
+		# 	print props.bbox
+		# 	if props.area > AREA_TOL:
+		# 		fine_props_list.append(props)
+		# 		# display contour 
+		# 		contour = skimage.measure.find_contours(label_img, 1, fully_connected='low', positive_orientation='low')
+		# 		print 'contour:', contour, len(contour)
+		# if not fine_props_list:
+		# 	print 'There is no barrel found!'
+		# 	return ['There is no barrel found!']
+
+		contours, hierarchy = cv2.findContours(out,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
+
+		# Find the index of the largest contour
+		# 1. Set contour area min
+		# 2. Set the maximum number of barrels: 2 
+		# 3. Eliminate barrels that are close to the rear of images 
+		# 4. 
+		areas = [cv2.contourArea(c) for c in contours]
+		max_index = np.argmax(areas)
+		cnt=contours[max_index]
+
+		x,y,w,h = cv2.boundingRect(cnt)
+		cv2.rectangle(orig_image,(x,y),(x+w,y+h),(0,255,0),2)
+		fig.add_subplot(122)
+		plt.imshow(orig_image,aspect='auto')
 		plt.show()
+
 		command = raw_input("continue display?")
 		if command == 'N' or command == 'n':
 			break 
 
 
+
+
+		
+
+
 if __name__ == '__main__':
 	# tune_GaussianMixtures('hsv')
-	visual_image_segmented()
+	# display_segmented_image()
+	tune_bouncing_box()
 	# load_train_data()
 	# visual_color_distribution('RGB',[1,2,3,4,5,6],show='off')
 	# visual_color_distribution('LUV',[1,2,3,4,5,6],show='off')
