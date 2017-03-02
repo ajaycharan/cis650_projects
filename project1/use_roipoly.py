@@ -18,7 +18,7 @@ We encode colors as following:
 barrel_red : 1 
 floor_red:   2 
 """
-color_dict = {1:"barrel RED", 2:"floor red: 2", 3: "wall red: 3", 4: "chair red: 4", 5: "wooden yellow: 5", 6:"gray brick: 6", 7:"other: 7"}
+color_dict = {1:"barrel RED", 2:"floor red: 2", 3: "wall red: 3", 4: "chair red: 4", 5: "wooden yellow: 5", 6:"gray brick: 6", 7:"green grass: 7"}
 
 def makeGrid(ROI, currentImage):
     ny, nx, three = np.shape(currentImage)
@@ -107,7 +107,7 @@ def main():
 		print '-- Draw ROI:  '
 		ROI = roipoly(roicolor='r') #let user draw first ROI
 
-		color = int(raw_input("---- What color it is? (barrel: 1, floor red: 2, wall red: 3, chair red: 4, yellow: 5, wall gray brick: 6) : "))
+		color = int(raw_input("---- What color it is? (barrel: 1, floor red: 2, wall red: 3, chair red: 4, yellow: 5, wall gray brick: 6, green grass: 7) : "))
 
 		# show the image with the first ROI
 		pl.imshow(img, aspect='auto')
@@ -167,9 +167,9 @@ def main():
 				break 
 			# else, let user draw next ROI
 			print "--- Draw next ROI...."
-			print "----  barrel: 1, floor red: 2, wall red: 3, chair red: 4, yellow: 5, wall gray brick: 6 !! "
+			print "----  barrel: 1, floor red: 2, wall red: 3, chair red: 4, yellow: 5, wall gray brick: 6 , green grass: 7!! "
 			ROI = roipoly(roicolor='b') #let user draw ROI
-			color = int(raw_input("---- What color it is? (barrel: 1, floor red: 2, wall red: 3, chair red: 4, yellow: 5, wall gray brick: 6) : "))
+			color = int(raw_input("---- What color it is? (barrel: 1, floor red: 2, wall red: 3, chair red: 4, yellow: 5, wall gray brick: 6, green grass: 7) : "))
 			pl.imshow(img, aspect='auto')
 			ROI.displayROI()
 			print "----- Color has been segmented:", color, " or ", color_dict[color]
